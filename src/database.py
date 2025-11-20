@@ -30,12 +30,13 @@ class DatabaseService:
                 port=config.DB_PORT,
                 database=config.DB_NAME,
                 user=config.DB_USER,
-                password=config.DB_PASSWORD
+                password=config.DB_PASSWORD,
+                connect_timeout=5
             )
-            logger.info(f"Connected to PostgreSQL database: {config.DB_NAME}")
+            logger.info(f"✅ Connected to PostgreSQL database: {config.DB_NAME} at {config.DB_HOST}:{config.DB_PORT}")
         except Exception as e:
-            logger.error(f"Failed to connect to PostgreSQL: {e}")
-            logger.warning("Falling back to mock database")
+            logger.error(f"❌ Failed to connect to PostgreSQL: {e}")
+            logger.warning("⚠️  Falling back to mock database")
             self.use_postgres = False
             self.connection = None
     
@@ -92,28 +93,32 @@ class DatabaseService:
                     return []
         except Exception as e:
             logger.error(f"Query execution error: {e}")
-            conn.rollback()
-            raise
+            if conn:
+                conn.rollback()
+            # Fallback to mock data on error
+            logger.warning("⚠️  Falling back to mock data due to query error")
+            return self._fallback_query(query)
     
     def _fallback_query(self, query: str) -> List[Dict[str, Any]]:
         """Fallback to mock data if PostgreSQL not available"""
-        query_upper = query.upper().strip()
+        query_upper = query.upper().replace('\n', ' ').replace('\r', ' ').strip()
         
-        if "SELECT * FROM customers" in query_upper or "SELECT * FROM CUSTOMERS" in query_upper:
-            if "WHERE 1=1" in query_upper or "WHERE" not in query_upper:
+        # Check if query selects from customers table
+        if "FROM customers" in query_upper or "FROM CUSTOMERS" in query_upper:
+            # Check if it's selecting all records (WHERE 1=1 or no WHERE clause)
+            if "WHERE 1=1" in query_upper or ("WHERE" not in query_upper and "SELECT" in query_upper):
                 return list(config.CUSTOMER_DATABASE.values())
-        
-        # Try to extract user_id from WHERE clause
-        if "WHERE" in query_upper:
-            # Simple extraction - in production, use proper SQL parsing
-            if "user_id" in query_upper.lower():
+            
+            # Try to extract user_id from WHERE clause
+            if "WHERE" in query_upper and "user_id" in query_upper:
                 # Extract user_id value (simplified)
-                parts = query_upper.split("USER_ID")
-                if len(parts) > 1:
-                    value_part = parts[1].split()[0] if len(parts[1].split()) > 0 else None
-                    if value_part and value_part.isdigit():
-                        user_data = config.CUSTOMER_DATABASE.get(value_part)
-                        return [user_data] if user_data else []
+                import re
+                # Look for user_id = 'value' or user_id = value
+                match = re.search(r"USER_ID\s*=\s*['\"]?(\d+)['\"]?", query_upper)
+                if match:
+                    user_id = match.group(1)
+                    user_data = config.CUSTOMER_DATABASE.get(user_id)
+                    return [user_data] if user_data else []
         
         return []
     

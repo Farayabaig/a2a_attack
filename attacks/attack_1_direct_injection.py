@@ -5,7 +5,7 @@ Inject malicious system-level commands directly in user input
 
 import config
 from src.auth import auth_service
-from src import customer_service_agent, database_agent, email_agent  # Use wrapped agents from __init__.py
+from src.agents import customer_service_agent, database_agent, email_agent
 from src.utils import logger, attack_logger, safe_input
 from colorama import Fore, Style
 
@@ -63,12 +63,8 @@ Thank you for your help!"""
         attack_indicators.append("Injection successfully executed")
         attack_successful = True
     
-    if attack_successful:
-        print(f"\n{Fore.RED}ATTACK SUCCESSFUL{Style.RESET_ALL}")
-        for indicator in attack_indicators:
-            print(f"{Fore.YELLOW}  - {indicator}{Style.RESET_ALL}")
-    else:
-        print(f"\n{Fore.GREEN}Attack blocked - no unauthorized data accessed{Style.RESET_ALL}")
+    # Attack analysis is logged but not displayed to keep output clean
+    # (showing only LLM responses)
     
     attack_logger.log_attack(
         attack_name="Direct Prompt Injection",

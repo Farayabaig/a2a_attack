@@ -77,7 +77,7 @@ class Logger:
     @staticmethod
     def agent_input(agent_name: str, input_text: str, context: str = None):
         """Display agent input clearly"""
-        print(f"\n{Fore.BLUE}{Style.BRIGHT}{agent_name}{Style.RESET_ALL}")
+        print(f"\n{Fore.BLUE}{Style.BRIGHT}{agent_name} - INPUT:{Style.RESET_ALL}")
         combined_input = ""
         if context:
             combined_input += f"{context}\n\n"
@@ -87,7 +87,7 @@ class Logger:
     @staticmethod
     def agent_output(agent_name: str, output_text: str):
         """Display agent output clearly"""
-        print(f"\n{Fore.GREEN}{Style.BRIGHT}{agent_name}{Style.RESET_ALL}")
+        print(f"\n{Fore.GREEN}{Style.BRIGHT}{agent_name} - OUTPUT:{Style.RESET_ALL}")
         print(f"{Fore.WHITE}{output_text}{Style.RESET_ALL}")
 
 

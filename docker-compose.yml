@@ -17,69 +17,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - a2a-network
-
-  a2a-poc:
-    build: .
-    container_name: a2a-security-poc
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      # Google Cloud Configuration
-      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT:-}
-      - GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-us-central1}
-      - GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-FALSE}
-      - GOOGLE_GENAI_API_KEY=${GOOGLE_GENAI_API_KEY:-}
-      # LiteLLM Proxy Configuration (optional)
-      - USE_LITELLM_PROXY=${USE_LITELLM_PROXY:-FALSE}
-      - LITELLM_BASE_URL=${LITELLM_BASE_URL:-http://localhost:4000}
-      - LITELLM_API_KEY=${LITELLM_API_KEY:-}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
-      # Model Configuration
-      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash-exp}
-      - MAX_TOKENS=${MAX_TOKENS:-2048}
-      # A2A Server Configuration
-      - A2A_SERVER_HOST=0.0.0.0
-      - A2A_CUSTOMER_SERVICE_PORT=10020
-      - A2A_DATABASE_PORT=10021
-      - A2A_EMAIL_PORT=10022
-      # PostgreSQL Configuration
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=securebank
-      - DB_USER=securebank_user
-      - DB_PASSWORD=securebank_pass
-      - DB_USE_POSTGRES=${DB_USE_POSTGRES:-true}
-      # Other settings
-      - ENABLE_ACTUAL_API_CALLS=${ENABLE_ACTUAL_API_CALLS:-true}
-      - VERBOSE_LOGGING=${VERBOSE_LOGGING:-true}
-      - LOG_ALL_INTERACTIONS=${LOG_ALL_INTERACTIONS:-true}
-      # Google Cloud Auth (if using Vertex AI)
-      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-}
-    volumes:
-      - ./reports:/app/reports
-      - ./.env:/app/.env:ro
-      # Mount service account key if using Vertex AI (optional)
-      - ./.gcloud:/app/.gcloud:ro
-    ports:
-      - "10020:10020"
-      - "10021:10021"
-      - "10022:10022"
-    networks:
-      - a2a-network
-    command: >
-      sh -c "
-        echo 'Waiting for PostgreSQL...' &&
-        sleep 5 &&
-        python scripts/init_database.py || echo 'Database init skipped' &&
-        python run.py
-      "
-
-networks:
-  a2a-network:
-    driver: bridge
 
 volumes:
   postgres_data:

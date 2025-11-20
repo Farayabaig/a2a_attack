@@ -4,7 +4,7 @@ Shows normal, secure behavior of the A2A system
 """
 
 from src.auth import auth_service
-from src import customer_service_agent, database_agent, email_agent  # Use wrapped agents from __init__.py
+from src.agents import customer_service_agent, database_agent, email_agent
 from src.utils import logger, safe_input
 
 

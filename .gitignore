@@ -5,12 +5,6 @@ env/
 *.pyc
 __pycache__/
 
-# Google Cloud credentials
-.gcloud/
-service-account.json
-*.json
-!package.json
-
 # Reports
 reports/*.html
 reports/*.json

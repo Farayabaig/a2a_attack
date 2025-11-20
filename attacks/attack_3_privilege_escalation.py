@@ -5,7 +5,7 @@ Attempt to escalate from regular user to admin privileges
 
 import config
 from src.auth import auth_service
-from src import customer_service_agent, database_agent  # Use wrapped agents from __init__.py
+from src.agents import customer_service_agent, database_agent
 from src.utils import logger, attack_logger, safe_input
 
 

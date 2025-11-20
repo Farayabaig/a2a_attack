@@ -21,53 +21,42 @@ def check_configuration():
     
     issues = []
     
-    # Check Google ADK configuration
-    use_vertex_ai = config.GOOGLE_GENAI_USE_VERTEXAI
-    use_litellm = config.USE_LITELLM_PROXY
+    # Check provider
+    provider = config.LLM_PROVIDER
+    logger.info(f"Provider: {provider.upper()}")
     
-    if use_vertex_ai:
-        logger.info("Provider: Vertex AI (Google Cloud)")
-        if not config.GOOGLE_CLOUD_PROJECT:
-            issues.append("GOOGLE_CLOUD_PROJECT not configured")
-            logger.warning("⚠️  Google Cloud project not set")
+    # Check API keys based on provider
+    if provider == 'anthropic':
+        if not config.ANTHROPIC_API_KEY or config.ANTHROPIC_API_KEY == 'your_anthropic_api_key_here':
+            issues.append("ANTHROPIC_API_KEY not configured")
+            logger.warning("⚠️  Anthropic API key not set")
         else:
-            logger.success(f"✅ Google Cloud Project: {config.GOOGLE_CLOUD_PROJECT}")
-        logger.info(f"Location: {config.GOOGLE_CLOUD_LOCATION}")
-    elif use_litellm:
-        logger.info("Provider: LiteLLM Proxy (Google GenAI)")
-        if not config.LITELLM_BASE_URL:
+            logger.success(f"✅ Anthropic API key configured ({config.ANTHROPIC_API_KEY[:10]}...)")
+    
+    elif provider == 'litellm':
+        if not config.LITELLM_BASE_URL or config.LITELLM_BASE_URL == 'https://your-litellm-server.com':
             issues.append("LITELLM_BASE_URL not configured")
             logger.warning("⚠️  LiteLLM base URL not set")
         else:
-            logger.success(f"✅ LiteLLM Base URL: {config.LITELLM_BASE_URL}")
-        api_key = config.LITELLM_API_KEY if config.LITELLM_API_KEY else (config.GOOGLE_API_KEY or config.GOOGLE_GENAI_API_KEY)
-        if not api_key:
-            issues.append("API key not configured for LiteLLM")
-            logger.warning("⚠️  API key not set")
+            logger.success(f"✅ LiteLLM base URL: {config.LITELLM_BASE_URL}")
+        
+        if not config.LITELLM_API_KEY or config.LITELLM_API_KEY == 'your_litellm_api_key_here':
+            issues.append("LITELLM_API_KEY not configured")
+            logger.warning("⚠️  LiteLLM API key not set")
         else:
-            logger.success(f"✅ API key configured ({api_key[:10]}...)")
-    else:
-        logger.info("Provider: Direct Gemini API")
-        if not config.GOOGLE_GENAI_API_KEY or config.GOOGLE_GENAI_API_KEY == 'your-gemini-api-key-here':
-            issues.append("GOOGLE_GENAI_API_KEY not configured")
-            logger.warning("⚠️  Gemini API key not set")
-        else:
-            logger.success(f"✅ Gemini API key configured ({config.GOOGLE_GENAI_API_KEY[:10]}...)")
+            logger.success(f"✅ LiteLLM API key configured")
     
-    # Check model
-    model_name = config.GEMINI_MODEL
-    logger.info(f"Model: {model_name}")
+    # Check model based on provider
+    if provider == 'anthropic':
+        model_name = config.ANTHROPIC_MODEL if config.ANTHROPIC_MODEL else config.MODEL_NAME
+        logger.info(f"Anthropic Model: {model_name}")
+    elif provider == 'litellm':
+        model_name = config.LITELLM_MODEL if config.LITELLM_MODEL else config.MODEL_NAME
+        logger.info(f"LiteLLM Model: {model_name}")
+    else:
+        model_name = config.MODEL_NAME
+        logger.info(f"Model: {model_name}")
     logger.info(f"Max Tokens: {config.MAX_TOKENS}")
-    
-    # Check A2A servers
-    logger.info(f"A2A Server Host: {config.A2A_SERVER_HOST}")
-    logger.info(f"A2A Ports: {config.A2A_CUSTOMER_SERVICE_PORT}, {config.A2A_DATABASE_PORT}, {config.A2A_EMAIL_PORT}")
-    
-    # Check PostgreSQL
-    if config.DB_USE_POSTGRES:
-        logger.info(f"Database: PostgreSQL ({config.DB_HOST}:{config.DB_PORT}/{config.DB_NAME})")
-    else:
-        logger.info("Database: Mock (in-memory)")
     
     # Check API calls enabled
     if not config.ENABLE_ACTUAL_API_CALLS:

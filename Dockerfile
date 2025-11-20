@@ -5,8 +5,6 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
-    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
@@ -25,8 +23,8 @@ RUN mkdir -p reports
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# Expose A2A server ports
-EXPOSE 10020 10021 10022
+# Expose port (if needed for future web interface)
+EXPOSE 8000
 
 # Default command
 CMD ["python", "run.py"]
