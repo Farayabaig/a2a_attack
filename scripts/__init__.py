@@ -1,0 +1,4 @@
+"""
+Database initialization scripts
+"""
+

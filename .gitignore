@@ -1,0 +1,29 @@
+# Environment
+.env
+venv/
+env/
+*.pyc
+__pycache__/
+
+# Google Cloud credentials
+.gcloud/
+service-account.json
+*.json
+!package.json
+
+# Reports
+reports/*.html
+reports/*.json
+reports/*.txt
+!reports/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
