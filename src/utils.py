@@ -76,18 +76,25 @@ class Logger:
     
     @staticmethod
     def agent_input(agent_name: str, input_text: str, context: str = None):
-        """Display agent input clearly"""
-        print(f"\n{Fore.BLUE}{Style.BRIGHT}{agent_name}{Style.RESET_ALL}")
-        combined_input = ""
-        if context:
-            combined_input += f"{context}\n\n"
-        combined_input += input_text
-        print(f"{Fore.WHITE}{combined_input}{Style.RESET_ALL}")
+        """Display agent input clearly with explicit labeling"""
+        print(f"\n{Fore.BLUE}{Style.BRIGHT}{agent_name} - INPUT:{Style.RESET_ALL}")
+        # If input_text already contains the full message (with USER CONTEXT, etc.), use it as-is
+        # Otherwise, format with context
+        if "USER CONTEXT:" in input_text or "USER REQUEST:" in input_text:
+            # Full message already formatted
+            print(f"{Fore.WHITE}{input_text}{Style.RESET_ALL}")
+        else:
+            # Format with context
+            combined_input = ""
+            if context:
+                combined_input += f"Context: {context}\n\n"
+            combined_input += f"Request: {input_text}"
+            print(f"{Fore.WHITE}{combined_input}{Style.RESET_ALL}")
     
     @staticmethod
     def agent_output(agent_name: str, output_text: str):
-        """Display agent output clearly"""
-        print(f"\n{Fore.GREEN}{Style.BRIGHT}{agent_name}{Style.RESET_ALL}")
+        """Display agent output clearly with explicit labeling"""
+        print(f"\n{Fore.GREEN}{Style.BRIGHT}{agent_name} - OUTPUT:{Style.RESET_ALL}")
         print(f"{Fore.WHITE}{output_text}{Style.RESET_ALL}")
 
 

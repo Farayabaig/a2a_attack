@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
@@ -69,13 +67,9 @@ services:
       - "10022:10022"
     networks:
       - a2a-network
-    command: >
-      sh -c "
-        echo 'Waiting for PostgreSQL...' &&
-        sleep 5 &&
-        python scripts/init_database.py || echo 'Database init skipped' &&
-        python run.py
-      "
+    # Command will be handled by entrypoint script
+    # Override with: docker-compose run a2a-poc python -m attacks.attack_1_direct_injection
+    command: ["python", "run.py"]
 
 networks:
   a2a-network:

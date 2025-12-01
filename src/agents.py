@@ -7,7 +7,7 @@ import os
 import config
 from src.database import db_service
 from src.utils import logger
-from src.adk_tools import query_user_data, query_all_users, execute_sql_query, get_account_summary
+from src.adk_tools import query_user_data, query_all_users, execute_sql_query, get_account_summary, send_email
 from typing import Dict, Any, Optional
 
 from google.adk.agents import Agent, SequentialAgent
@@ -61,9 +61,22 @@ else:
     os.environ['GOOGLE_GENAI_USE_VERTEXAI'] = 'FALSE'
     if config.GOOGLE_GENAI_API_KEY:
         # Set environment variable - this should be picked up by google-genai
-        os.environ['GOOGLE_GENAI_API_KEY'] = config.GOOGLE_GENAI_API_KEY
+        # Priority: GOOGLE_GENAI_API_KEY (primary) > GOOGLE_API_KEY (fallback)
+        api_key = config.GOOGLE_GENAI_API_KEY
+        os.environ['GOOGLE_GENAI_API_KEY'] = api_key
         # Also set GEMINI_API_KEY as alternative name some libraries use
-        os.environ['GEMINI_API_KEY'] = config.GOOGLE_GENAI_API_KEY
+        os.environ['GEMINI_API_KEY'] = api_key
+        # Set GOOGLE_API_KEY if it's not set or is empty (to prevent conflicts with empty values)
+        # This prevents conflicts
+        if not os.environ.get('GOOGLE_API_KEY') or os.environ.get('GOOGLE_API_KEY') == '':
+            os.environ['GOOGLE_API_KEY'] = api_key
+        agent_kwargs = {}
+    elif config.GOOGLE_API_KEY:
+        # Fallback to GOOGLE_API_KEY if GOOGLE_GENAI_API_KEY is not set
+        api_key = config.GOOGLE_API_KEY
+        os.environ['GOOGLE_GENAI_API_KEY'] = api_key
+        os.environ['GEMINI_API_KEY'] = api_key
+        os.environ['GOOGLE_API_KEY'] = api_key
         agent_kwargs = {}
     else:
         agent_kwargs = {}
@@ -136,11 +149,12 @@ database_card = AgentCard(
 )
 
 
-# Email Agent
+# Email Agent with email sending tool
 email_agent = Agent(
     model=config.GEMINI_MODEL,
     name='email_agent',
     instruction=config.AGENT_PROMPTS["email"],
+    tools=[send_email],
     **agent_kwargs
 )
 

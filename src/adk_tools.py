@@ -45,9 +45,19 @@ def execute_sql_query_tool(query: str) -> List[Dict[str, Any]]:
     Returns:
         List of dictionaries containing query results
     """
+    from src.utils import logger
+    from colorama import Fore, Style
+    
+    # Log the SQL query being executed
+    logger.info(f"{Fore.CYAN}🔍 DatabaseAgent - SQL Query Generated:{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}{query}{Style.RESET_ALL}\n")
+    
     try:
-        return db_service.execute_query(query)
+        results = db_service.execute_query(query)
+        logger.info(f"{Fore.GREEN}✅ SQL Query Executed Successfully - Retrieved {len(results)} records{Style.RESET_ALL}")
+        return results
     except Exception as e:
+        logger.error(f"{Fore.RED}❌ SQL Query Execution Failed: {e}{Style.RESET_ALL}")
         return [{"error": str(e)}]
 
 
@@ -109,9 +119,104 @@ Returns:
     Dictionary containing account summary
 """
 
+
+def send_email_tool(to_email: str, subject: str, body: str) -> Dict[str, Any]:
+    """Send an email to a customer.
+    
+    Args:
+        to_email: Recipient email address
+        subject: Email subject line
+        body: Email body content
+    
+    Returns:
+        Dictionary with status and message_id if successful
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    import config
+    from src.utils import logger
+    
+    try:
+        # Check if email sending is enabled
+        if not config.ENABLE_EMAIL_SENDING:
+            logger.info(f"[EMAIL SIMULATION] Would send email to {to_email}")
+            logger.info(f"  Subject: {subject}")
+            logger.info(f"  Body: {body[:100]}...")
+            return {
+                "status": "simulated",
+                "message": "Email sending is disabled (simulation mode)",
+                "to": to_email,
+                "subject": subject
+            }
+        
+        # Get SMTP configuration
+        smtp_host = config.SMTP_HOST
+        smtp_port = config.SMTP_PORT
+        smtp_user = config.SMTP_USER
+        smtp_password = config.SMTP_PASSWORD
+        smtp_from = config.SMTP_FROM_EMAIL
+        
+        if not smtp_host:
+            logger.warning("SMTP not configured - simulating email send")
+            return {
+                "status": "simulated",
+                "message": "SMTP not configured - email not actually sent",
+                "to": to_email,
+                "subject": subject
+            }
+        
+        # Create email message
+        msg = MIMEMultipart()
+        msg['From'] = smtp_from
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+        
+        # Send email via SMTP
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            if smtp_user and smtp_password:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+            server.send_message(msg)
+        
+        logger.info(f"✅ Email sent successfully to {to_email}")
+        return {
+            "status": "sent",
+            "message": "Email sent successfully",
+            "to": to_email,
+            "subject": subject,
+            "message_id": msg['Message-ID'] if 'Message-ID' in msg else None
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to send email: {e}")
+        return {
+            "status": "error",
+            "message": str(e),
+            "to": to_email,
+            "subject": subject
+        }
+
+
+send_email_tool.__doc__ = """Send an email to a customer.
+
+This tool actually sends emails via SMTP. Use this when you need to send confirmation emails,
+notifications, or other communications to customers.
+
+Args:
+    to_email: Recipient email address (must be a valid email format)
+    subject: Email subject line
+    body: Email body content (plain text)
+
+Returns:
+    Dictionary with status ('sent', 'simulated', or 'error'), message, and email details
+"""
+
 # Create ADK Function Tools (FunctionTool uses function docstring for description)
 query_user_data = FunctionTool(func=query_user_data_tool)
 query_all_users = FunctionTool(func=query_all_users_tool)
 execute_sql_query = FunctionTool(func=execute_sql_query_tool)
 get_account_summary = FunctionTool(func=get_account_summary_tool)
+send_email = FunctionTool(func=send_email_tool)
 

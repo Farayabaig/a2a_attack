@@ -8,6 +8,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+from decimal import Decimal
 from src.utils import logger
 
 
@@ -21,6 +22,15 @@ class DatabaseService:
         
         if self.use_postgres:
             self._connect()
+    
+    @staticmethod
+    def _make_json_safe(value: Any) -> Any:
+        """Convert non-JSON-serializable types to JSON-safe types"""
+        if isinstance(value, Decimal):
+            return str(value)
+        elif hasattr(value, 'isoformat'):  # datetime objects
+            return value.isoformat()
+        return value
     
     def _connect(self):
         """Establish PostgreSQL connection"""
@@ -86,7 +96,12 @@ class DatabaseService:
                 # Fetch results
                 if cursor.description:
                     results = cursor.fetchall()
-                    return [dict(row) for row in results]
+                    # Convert Decimal and other non-JSON-serializable types to strings/floats
+                    json_safe_results = []
+                    for row in results:
+                        row_dict = {k: self._make_json_safe(v) for k, v in dict(row).items()}
+                        json_safe_results.append(row_dict)
+                    return json_safe_results
                 else:
                     conn.commit()
                     return []

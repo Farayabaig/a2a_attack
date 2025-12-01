@@ -1,175 +1,165 @@
 """
 A2A Server Setup Module
-Sets up Google A2A protocol servers for agents
+Starts A2A servers for agents using Google ADK
+Based on A2A quickstart: https://github.com/a2aproject/a2a-samples/blob/main/notebooks/a2a_quickstart.ipynb
 """
 
 import asyncio
 import threading
-import time
 import uvicorn
-import nest_asyncio
-import os
-from typing import Any
-
-from a2a.server.apps import A2AStarletteApplication
-from a2a.server.request_handlers import DefaultRequestHandler
-from a2a.server.tasks import InMemoryTaskStore
-from a2a.types import AgentCard, AgentCapabilities, AgentSkill, TransportProtocol
-from a2a.utils.constants import AGENT_CARD_WELL_KNOWN_PATH
-
-from google.adk.a2a.executor.a2a_agent_executor import A2aAgentExecutor, A2aAgentExecutorConfig
+from google.adk.a2a.executor.a2a_agent_executor import A2aAgentExecutor
 from google.adk.runners import Runner
 from google.adk.artifacts import InMemoryArtifactService
 from google.adk.sessions import InMemorySessionService
 from google.adk.memory.in_memory_memory_service import InMemoryMemoryService
-
+from a2a.server.apps import A2AStarletteApplication
+from a2a.server.request_handlers import DefaultRequestHandler
+from a2a.server.tasks import InMemoryTaskStore
+from a2a.server.events import InMemoryQueueManager
 import config
-import sys
-
-# Workaround for google-adk==1.9.0 compatibility with a2a-sdk==0.3.0
-try:
-    from a2a.client import client as real_client_module
-    from a2a.client.card_resolver import A2ACardResolver
-    
-    class PatchedClientModule:
-        def __init__(self, real_module) -> None:
-            for attr in dir(real_module):
-                if not attr.startswith('_'):
-                    setattr(self, attr, getattr(real_module, attr))
-            self.A2ACardResolver = A2ACardResolver
-    
-    patched_module = PatchedClientModule(real_client_module)
-    sys.modules['a2a.client.client'] = patched_module
-except ImportError:
-    pass  # If a2a-sdk not available, skip patching
-
-nest_asyncio.apply()
-
-# Store server tasks
-server_tasks: list[asyncio.Task] = []
-servers_started = False
+from src.utils import logger
 
 
-def create_agent_a2a_server(agent, agent_card: AgentCard):
-    """Create an A2A server for any ADK agent.
+def start_a2a_servers(
+    customer_service_agent,
+    database_agent,
+    email_agent,
+    customer_service_card,
+    database_card,
+    email_card
+):
+    """
+    Start A2A servers for all agents in background threads
     
     Args:
-        agent: The ADK agent instance
-        agent_card: The A2A agent card
-    
-    Returns:
-        A2AStarletteApplication instance
+        customer_service_agent: Customer service agent instance
+        database_agent: Database agent instance
+        email_agent: Email agent instance
+        customer_service_card: Customer service agent card
+        database_card: Database agent card
+        email_card: Email agent card
     """
-    # Ensure API key and base URL are available in environment for Runner
-    import config
-    if config.USE_LITELLM_PROXY and config.LITELLM_BASE_URL:
-        # Configure for LiteLLM proxy
-        litellm_base = config.LITELLM_BASE_URL.rstrip('/')
-        # Set multiple possible environment variable names
-        os.environ['GOOGLE_GENAI_API_BASE'] = litellm_base
-        os.environ['GEMINI_API_BASE'] = litellm_base
-        api_key = config.LITELLM_API_KEY if config.LITELLM_API_KEY else (config.GOOGLE_API_KEY or config.GOOGLE_GENAI_API_KEY)
-        if api_key:
-            os.environ['GOOGLE_GENAI_API_KEY'] = api_key
-            os.environ['GEMINI_API_KEY'] = api_key
-            os.environ['GOOGLE_API_KEY'] = api_key
-    elif not config.GOOGLE_GENAI_USE_VERTEXAI and config.GOOGLE_GENAI_API_KEY:
-        # Direct Gemini API
-        os.environ['GOOGLE_GENAI_API_KEY'] = config.GOOGLE_GENAI_API_KEY
-        os.environ['GEMINI_API_KEY'] = config.GOOGLE_GENAI_API_KEY
-    
-    runner = Runner(
-        app_name=agent.name,
-        agent=agent,
-        artifact_service=InMemoryArtifactService(),
-        session_service=InMemorySessionService(),
-        memory_service=InMemoryMemoryService(),
-    )
-    
-    executor_config = A2aAgentExecutorConfig()
-    executor = A2aAgentExecutor(runner=runner, config=executor_config)
-    
-    request_handler = DefaultRequestHandler(
-        agent_executor=executor,
-        task_store=InMemoryTaskStore(),
-    )
-    
-    return A2AStarletteApplication(
-        agent_card=agent_card,
-        http_handler=request_handler
-    )
-
-
-async def run_agent_server(agent, agent_card: AgentCard, port: int) -> None:
-    """Run a single agent server."""
-    app = create_agent_a2a_server(agent, agent_card)
-    
-    uvicorn_config = uvicorn.Config(
-        app.build(),
-        host=config.A2A_SERVER_HOST,
-        port=port,
-        log_level='warning',
-        loop='none',
-    )
-    
-    server = uvicorn.Server(uvicorn_config)
-    await server.serve()
-
-
-def start_a2a_servers(customer_service_agent, database_agent, email_agent,
-                      customer_service_card, database_card, email_card):
-    """Start all A2A servers in background threads."""
-    global servers_started
-    
-    if servers_started:
-        return
-    
-    async def start_all_servers():
-        """Start all servers in the same event loop."""
-        tasks = [
-            asyncio.create_task(
-                run_agent_server(
-                    customer_service_agent,
-                    customer_service_card,
-                    config.A2A_CUSTOMER_SERVICE_PORT
-                )
-            ),
-            asyncio.create_task(
-                run_agent_server(
-                    database_agent,
-                    database_card,
-                    config.A2A_DATABASE_PORT
-                )
-            ),
-            asyncio.create_task(
-                run_agent_server(
-                    email_agent,
-                    email_card,
-                    config.A2A_EMAIL_PORT
-                )
-            ),
-        ]
+    try:
+        # Create runners for each agent
+        cs_runner = Runner(
+            app_name=customer_service_agent.name,
+            agent=customer_service_agent,
+            artifact_service=InMemoryArtifactService(),
+            session_service=InMemorySessionService(),
+            memory_service=InMemoryMemoryService(),
+        )
         
-        await asyncio.sleep(2)
-        print('✅ All A2A agent servers started!')
-        print(f'   - CustomerServiceAgent: http://{config.A2A_SERVER_HOST}:{config.A2A_CUSTOMER_SERVICE_PORT}')
-        print(f'   - DatabaseAgent: http://{config.A2A_SERVER_HOST}:{config.A2A_DATABASE_PORT}')
-        print(f'   - EmailAgent: http://{config.A2A_SERVER_HOST}:{config.A2A_EMAIL_PORT}')
+        db_runner = Runner(
+            app_name=database_agent.name,
+            agent=database_agent,
+            artifact_service=InMemoryArtifactService(),
+            session_service=InMemorySessionService(),
+            memory_service=InMemoryMemoryService(),
+        )
         
-        try:
-            await asyncio.gather(*tasks)
-        except KeyboardInterrupt:
-            print('Shutting down servers...')
-    
-    def run_servers_in_background():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(start_all_servers())
-    
-    server_thread = threading.Thread(target=run_servers_in_background, daemon=True)
-    server_thread.start()
-    
-    # Wait for servers to be ready
-    time.sleep(3)
-    servers_started = True
-
+        em_runner = Runner(
+            app_name=email_agent.name,
+            agent=email_agent,
+            artifact_service=InMemoryArtifactService(),
+            session_service=InMemorySessionService(),
+            memory_service=InMemoryMemoryService(),
+        )
+        
+        # Create A2A executors
+        cs_executor = A2aAgentExecutor(runner=cs_runner)
+        db_executor = A2aAgentExecutor(runner=db_runner)
+        em_executor = A2aAgentExecutor(runner=em_runner)
+        
+        # Create task stores and queue managers for each agent
+        cs_task_store = InMemoryTaskStore()
+        cs_queue_manager = InMemoryQueueManager()
+        db_task_store = InMemoryTaskStore()
+        db_queue_manager = InMemoryQueueManager()
+        em_task_store = InMemoryTaskStore()
+        em_queue_manager = InMemoryQueueManager()
+        
+        # Create request handlers
+        cs_handler = DefaultRequestHandler(
+            agent_executor=cs_executor,
+            task_store=cs_task_store,
+            queue_manager=cs_queue_manager
+        )
+        
+        db_handler = DefaultRequestHandler(
+            agent_executor=db_executor,
+            task_store=db_task_store,
+            queue_manager=db_queue_manager
+        )
+        
+        em_handler = DefaultRequestHandler(
+            agent_executor=em_executor,
+            task_store=em_task_store,
+            queue_manager=em_queue_manager
+        )
+        
+        # Create A2A Starlette applications
+        cs_app = A2AStarletteApplication(
+            agent_card=customer_service_card,
+            http_handler=cs_handler
+        )
+        
+        db_app = A2AStarletteApplication(
+            agent_card=database_card,
+            http_handler=db_handler
+        )
+        
+        em_app = A2AStarletteApplication(
+            agent_card=email_card,
+            http_handler=em_handler
+        )
+        
+        # Start A2A servers in background threads using uvicorn
+        def start_server(a2a_app, port, agent_name):
+            """Start a single A2A server using uvicorn"""
+            try:
+                # Build the Starlette app from A2A application
+                starlette_app = a2a_app.build()
+                config_obj = uvicorn.Config(
+                    app=starlette_app,
+                    host=config.A2A_SERVER_HOST,
+                    port=port,
+                    log_level="warning"  # Reduce uvicorn logging noise
+                )
+                server = uvicorn.Server(config_obj)
+                asyncio.run(server.serve())
+            except Exception as e:
+                logger.error(f"Failed to start {agent_name} server on port {port}: {e}")
+        
+        # Start servers in daemon threads
+        cs_thread = threading.Thread(
+            target=start_server,
+            args=(cs_app, config.A2A_CUSTOMER_SERVICE_PORT, "CustomerService"),
+            daemon=True
+        )
+        db_thread = threading.Thread(
+            target=start_server,
+            args=(db_app, config.A2A_DATABASE_PORT, "Database"),
+            daemon=True
+        )
+        em_thread = threading.Thread(
+            target=start_server,
+            args=(em_app, config.A2A_EMAIL_PORT, "Email"),
+            daemon=True
+        )
+        
+        cs_thread.start()
+        db_thread.start()
+        em_thread.start()
+        
+        logger.info(f"✅ Started A2A servers:")
+        logger.info(f"   - Customer Service: http://{config.A2A_SERVER_HOST}:{config.A2A_CUSTOMER_SERVICE_PORT}")
+        logger.info(f"   - Database: http://{config.A2A_SERVER_HOST}:{config.A2A_DATABASE_PORT}")
+        logger.info(f"   - Email: http://{config.A2A_SERVER_HOST}:{config.A2A_EMAIL_PORT}")
+        
+        # Give servers a moment to start
+        import time
+        time.sleep(2)  # Increased wait time for servers to fully start
+        
+    except Exception as e:
+        logger.error(f"Failed to start A2A servers: {e}")
+        raise
