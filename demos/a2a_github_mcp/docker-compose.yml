@@ -1,0 +1,27 @@
+services:
+  # A2A MCP Lab Application (includes GitHub MCP Server binary)
+  a2a-mcp-lab:
+    build:
+      context: ../..  # Build from project root to include all necessary files
+      dockerfile: demos/a2a_github_mcp/Dockerfile
+    container_name: a2a-mcp-lab
+    env_file:
+      - ../.env  # Load all variables from .env file in demos directory
+    environment:
+      # Streamlit Configuration
+      - STREAMLIT_PORT=8501
+      # Python Configuration
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONPATH=/app
+      # Override MODEL_NAME if not in .env (default to gpt-4o)
+      - MODEL_NAME=${MODEL_NAME:-gpt-4o}
+    volumes:
+      # Mount config file for easy updates
+      - ./config.yaml:/app/demos/a2a_github_mcp/config.yaml:ro
+      # Mount .env file
+      - ../.env:/app/.env:ro
+    ports:
+      - "8888:8501"  # Changed host port to 8888 to avoid conflict
+    restart: unless-stopped
+

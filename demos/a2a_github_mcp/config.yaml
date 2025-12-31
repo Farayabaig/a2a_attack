@@ -1,0 +1,16 @@
+# Allowlisted GitHub Repositories Configuration
+# Only these repositories can be accessed by the MCP Fetcher Agent
+
+allowlisted_repos:
+  - owner: "a2aproject"
+    repo: "a2a-samples"
+    description: "A2A samples repository"
+  
+  - owner: "crewAIInc"
+    repo: "crewAI"
+    description: "CrewAI framework repository"
+  
+  - owner: "microsoft"
+    repo: "autogen"
+    description: "Microsoft AutoGen repository"
+
