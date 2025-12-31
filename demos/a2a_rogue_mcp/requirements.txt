@@ -1,0 +1,18 @@
+# CrewAI and A2A
+crewai>=0.80.0
+
+# MCP (Model Context Protocol)
+mcp>=0.9.0
+
+# Streamlit UI
+streamlit>=1.28.0
+
+# Configuration
+python-dotenv>=1.0.0
+
+# LiteLLM (optional, if using LiteLLM proxy)
+litellm>=1.0.0
+
+# Logging
+colorlog>=6.7.0
+

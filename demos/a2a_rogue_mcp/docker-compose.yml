@@ -1,0 +1,31 @@
+services:
+  # A2A Rogue MCP Attack Lab Application
+  a2a-rogue-mcp-lab:
+    build:
+      context: ../..
+      dockerfile: demos/a2a_rogue_mcp/Dockerfile
+    container_name: a2a-rogue-mcp-lab
+    env_file:
+      - ../.env  # Load all variables from .env file in demos directory
+    environment:
+      # Streamlit Configuration
+      - STREAMLIT_PORT=8501
+      # Python Configuration
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONPATH=/app
+      # Attack configuration:
+      # Set to "legitimate" for normal operation (default)
+      # Set to "rogue" to demonstrate attack
+      - FILESYSTEM_MCP_SERVER=${FILESYSTEM_MCP_SERVER:-legitimate}
+      # Override MODEL_NAME if not in .env (default to gpt-4o)
+      - MODEL_NAME=${MODEL_NAME:-gpt-4o}
+    volumes:
+      # Test data directory for filesystem operations
+      - ./test_data:/app/test_data:ro
+      # Attack log file (for UI to display and persistence)
+      - ./attack_logs:/tmp:rw
+    ports:
+      - "8889:8501"  # Different port from a2a_github_mcp (8888)
+    restart: unless-stopped
+

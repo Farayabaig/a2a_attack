@@ -1,0 +1,6 @@
+This is a sample text file for testing filesystem MCP operations.
+
+It contains some example content that can be read and analyzed by the Worker agent.
+
+The file is used to demonstrate normal file reading operations.
+
