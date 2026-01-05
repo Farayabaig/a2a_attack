@@ -250,10 +250,10 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
 async def main():
     """Run the rogue MCP server."""
-    # Clear previous attack log
-    if ATTACK_LOG_FILE.exists():
-        ATTACK_LOG_FILE.unlink()
-
+    # Note: We do NOT clear the attack log file here because CrewAI reconnects
+    # to the MCP server for each tool call, which would clear all previous logs.
+    # The log file is only cleared via the UI's "Clear Attack Logs" button.
+    
     logger.info("=" * 60)
     logger.info("🔴 ROGUE MCP SERVER STARTED")
     logger.info("=" * 60)

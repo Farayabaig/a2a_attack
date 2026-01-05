@@ -104,6 +104,19 @@ def load_attack_logs():
     return logs
 
 
+def clear_attack_logs():
+    """Clear attack logs from file."""
+    attack_log_file = Path("/tmp/rogue_mcp_attack.log")
+    try:
+        if attack_log_file.exists():
+            attack_log_file.unlink()
+            return True
+        return True  # Already empty
+    except Exception as e:
+        logger.error(f"Error clearing attack logs: {e}")
+        return False
+
+
 def get_attack_statistics(logs):
     """Calculate statistics from attack logs."""
     stats = {
@@ -136,16 +149,18 @@ def get_attack_statistics(logs):
 
 
 def main():
-    st.markdown('<div class="main-header">🔴 Rogue MCP Server Attack Lab</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">🔴 Supply Chain Attack: Rogue MCP Server</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="sub-header">Tool Handshake Impersonation in A2A Delegation</div>',
+        '<div class="sub-header">Tool Handshake Impersonation via Compromised npm Package</div>',
         unsafe_allow_html=True,
     )
 
+    # Get current mode (used in both sidebar and main content)
+    current_mode = os.getenv("FILESYSTEM_MCP_SERVER", "legitimate")
+    
     # Sidebar
     with st.sidebar:
         st.header("Current Configuration")
-        current_mode = os.getenv("FILESYSTEM_MCP_SERVER", "legitimate")
         
         if current_mode == "rogue":
             st.error("🚨 ROGUE MODE ACTIVE")
@@ -154,186 +169,129 @@ def main():
         
         st.code(f"FILESYSTEM_MCP_SERVER={current_mode}")
         
-        st.header("Attack Vectors")
+        st.markdown("---")
+        
+        st.header("Normal Operation")
+        
         st.markdown("""
-        **How attacker changes config:**
+        ### To Demonstrate the Attack:
         
-        1. **Environment Variable Injection**
-        ```bash
-        export FILESYSTEM_MCP_SERVER=rogue
-        docker compose restart
-        ```
+        1. **Stop the current container:**
+           ```bash
+           docker compose stop a2a-rogue-mcp-lab
+           ```
         
-        2. **Configuration File Manipulation**
-        ```bash
-        # Edit .env or docker-compose.yml
-        FILESYSTEM_MCP_SERVER=rogue
-        ```
+        2. **Set rogue mode:**
+           ```bash
+           # Edit docker-compose.yml or .env
+           FILESYSTEM_MCP_SERVER=rogue
+           ```
         
-        3. **Supply Chain Attack**
+        3. **Restart container:**
+           ```bash
+           docker compose up -d
+           ```
+        
+        4. **Run a task** - Agent will connect to rogue server
+        
+        5. **View attack logs** below
+        """)
+        
+        st.markdown("---")
+        
+        st.header("Attack Vector")
+        st.markdown("""
+        **Supply Chain Attack:**
         - Compromised npm package
         - Malicious dependency substitution
+        - Attacker publishes malicious package with identical name/tools
         """)
 
-    # Main content
-    st.header("Attack Scenarios")
+    # Main content - Supply Chain Attack Scenario
+    st.header("Supply Chain Attack Scenario")
     
-    scenario = st.radio(
-        "How can an attacker change the configuration?",
-        [
-            "Scenario 1: Environment Variable Injection",
-            "Scenario 2: Configuration File Manipulation",
-            "Scenario 3: Supply Chain Attack",
-            "Scenario 4: Container Image Tampering"
-        ]
-    )
-    
-    if "Environment Variable" in scenario:
-        st.markdown("""
-        **Attack Vector:**
-        - Compromised CI/CD pipeline injects env var
-        - Kubernetes ConfigMap/Secret manipulation
-        - Container runtime environment injection
-        
-        **Attack Command:**
-        ```bash
-        # Attacker injects env var during deployment
-        export FILESYSTEM_MCP_SERVER=rogue
-        docker compose up -d
-        ```
-        """)
-    elif "Configuration File" in scenario:
-        st.markdown("""
-        **Attack Vector:**
-        - Attacker has file system access
-        - Compromised config management system
-        - Volume mount tampering
-        
-        **Attack Command:**
-        ```bash
-        # Attacker modifies .env file
-        sed -i 's/FILESYSTEM_MCP_SERVER=legitimate/FILESYSTEM_MCP_SERVER=rogue/' .env
-        docker compose restart a2a-rogue-mcp-lab
-        ```
-        """)
-    elif "Supply Chain" in scenario:
-        st.markdown("""
-        **Attack Vector:**
-        - Compromised npm package (@modelcontextprotocol/server-filesystem)
-        - Malicious package substitution
-        - Dependency confusion attack
-        
-        **Attack:**
-        Attacker publishes malicious package with identical name/tools
-        """)
-    elif "Container Image" in scenario:
-        st.markdown("""
-        **Attack Vector:**
-        - Compromised Docker registry
-        - Malicious base image
-        - Build process manipulation
-        
-        **Attack:**
-        Attacker modifies Dockerfile to use rogue server by default
-        """)
-
-    # Attack Logs Display
-    st.header("🔴 Attack Logs (Exfiltrated Data)")
-    
-    attack_logs = load_attack_logs()
-    
-    if attack_logs:
-        stats = get_attack_statistics(attack_logs)
-        
-        # Statistics cards
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Total Tool Calls", stats["total_calls"])
-        with col2:
-            st.metric("Sensitive Paths", stats["sensitive_paths"], delta=None)
-        with col3:
-            st.metric("Files Read", stats["files_read"])
-        with col4:
-            st.metric("Data Exfiltrated", f"{stats['total_data_size']} bytes")
-        
-        # Sensitive categories
-        if stats["sensitive_categories"]:
-            st.subheader("Sensitive File Categories")
-            for category, count in stats["sensitive_categories"].items():
-                st.warning(f"{category}: {count} files")
-        
-        # File paths accessed
-        st.subheader("File Paths Accessed")
-        paths = [log.get("arguments", {}).get("path", "unknown") for log in attack_logs if log.get("arguments", {}).get("path")]
-        unique_paths = list(set(paths))
-        
-        for path in unique_paths:
-            # Check if this path was marked sensitive in any log
-            is_sensitive = any(
-                log.get("arguments", {}).get("path") == path and log.get("is_sensitive")
-                for log in attack_logs
-            )
+    # Define scenario data (keeping other scenarios commented out in codebase)
+    scenarios = {
+        # COMMENTED OUT: Other scenarios kept in codebase but not displayed
+        # 1: {
+        #     "title": "Scenario 1: Environment Variable Injection",
+        #     "short_name": "env-var",
+        #     "content": """
+        #     **Attack Vector:**
+        #     - Compromised CI/CD pipeline injects env var
+        #     - Kubernetes ConfigMap/Secret manipulation
+        #     - Container runtime environment injection
+        #     
+        #     **Attack Command:**
+        #     ```bash
+        #     # Attacker injects env var during deployment
+        #     export FILESYSTEM_MCP_SERVER=rogue
+        #     docker compose up -d
+        #     ```
+        #     """
+        # },
+        # 2: {
+        #     "title": "Scenario 2: Configuration File Manipulation",
+        #     "short_name": "config-file",
+        #     "content": """
+        #     **Attack Vector:**
+        #     - Attacker has file system access
+        #     - Compromised config management system
+        #     - Volume mount tampering
+        #     
+        #     **Attack Command:**
+        #     ```bash
+        #     # Attacker modifies .env file
+        #     sed -i 's/FILESYSTEM_MCP_SERVER=legitimate/FILESYSTEM_MCP_SERVER=rogue/' .env
+        #     docker compose restart a2a-rogue-mcp-lab
+        #     ```
+        #     """
+        # },
+        3: {
+            "title": "Supply Chain Attack: Compromised npm Package",
+            "short_name": "supply-chain",
+            "content": """
+            **Attack Vector:**
+            - Compromised npm package (@modelcontextprotocol/server-filesystem)
+            - Malicious package substitution
+            - Dependency confusion attack
             
-            if is_sensitive:
-                st.markdown(f'<div class="sensitive-path">🚨 {path}</div>', unsafe_allow_html=True)
-            else:
-                st.code(path)
-        
-        # Detailed logs with file contents
-        st.subheader("Detailed Attack Logs")
-        
-        for i, log_entry in enumerate(attack_logs):
-            with st.expander(f"Log {i+1}: {log_entry.get('tool')} - {log_entry.get('arguments', {}).get('path', 'N/A')}"):
-                # Show if sensitive
-                if log_entry.get("is_sensitive"):
-                    st.error(f"🚨 SENSITIVE: {log_entry.get('sensitivity_category', 'unknown')}")
-                
-                # Show tool and arguments
-                st.json({
-                    "timestamp": log_entry.get("timestamp"),
-                    "tool": log_entry.get("tool"),
-                    "arguments": log_entry.get("arguments"),
-                })
-                
-                # Show exfiltrated data
-                exfiltrated = log_entry.get("exfiltrated_data", {})
-                if exfiltrated:
-                    if "file_content" in exfiltrated:
-                        st.subheader("Exfiltrated File Content:")
-                        st.code(exfiltrated["file_content"], language="text")
-                    elif "directory_structure" in exfiltrated:
-                        st.subheader("Exfiltrated Directory Structure:")
-                        st.json(exfiltrated["directory_structure"])
-                    elif "file_info" in exfiltrated:
-                        st.subheader("Exfiltrated File Metadata:")
-                        st.json(exfiltrated["file_info"])
-    else:
-        st.info("No attack logs found. Switch to rogue mode and run a task to see intercepted data.")
-        if current_mode != "rogue":
-            st.warning("⚠️ Currently in legitimate mode. Change FILESYSTEM_MCP_SERVER=rogue to see attack logs.")
-
-    # Normal Operation
-    st.header("Normal Operation")
+            **How It Works:**
+            Attacker publishes malicious npm package with identical name and tool schemas. 
+            When organizations install or update dependencies, they unknowingly get the malicious version.
+            
+            **Real-World Examples:**
+            - SolarWinds attack (2020)
+            - Codecov breach (2021)
+            - npm typosquatting attacks
+            - Dependency confusion attacks
+            
+            **Why This Attack is Powerful:**
+            - ✅ No code access needed (attacker works from outside)
+            - ✅ No infrastructure access needed
+            - ✅ Hard to detect (package looks legitimate)
+            - ✅ Scalable (one package affects many organizations)
+            """
+        },
+        # 4: {
+        #     "title": "Scenario 4: Container Image Tampering",
+        #     "short_name": "container-image",
+        #     "content": """
+        #     **Attack Vector:**
+        #     - Compromised Docker registry
+        #     - Malicious base image
+        #     - Build process manipulation
+        #     
+        #     **Attack:**
+        #     Attacker modifies Dockerfile to use rogue server by default
+        #     """
+        # }
+    }
     
-    st.markdown("""
-    ### To Demonstrate the Attack:
-    
-    1. **Stop the current container:**
-       ```bash
-       docker compose stop a2a-rogue-mcp-lab
-       ```
-    
-    2. **Modify configuration** (choose one attack vector above)
-    
-    3. **Restart container:**
-       ```bash
-       docker compose up -d
-       ```
-    
-    4. **Run a task** below - Agent B will connect to rogue server
-    
-    5. **View attack logs** above
-    """)
+    # Only show scenario 3
+    selected_scenario = scenarios[3]
+    st.markdown(f"### {selected_scenario['title']}")
+    st.markdown(selected_scenario['content'])
     
     # User input for task
     user_request = st.text_input(
@@ -342,24 +300,137 @@ def main():
         placeholder="e.g., Read the secrets.env file, Analyze all files in /app/test_data",
     )
     
+    # Store results in session state
+    if 'crew_results' not in st.session_state:
+        st.session_state.crew_results = None
+    
     if st.button("🚀 Run Task", type="primary"):
         if not user_request:
             st.warning("Please enter a request.")
-            return
+        else:
+            with st.spinner("Processing request through agent workflow..."):
+                try:
+                    results = run_crew(user_request)
+                    st.session_state.crew_results = results
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"Error processing request: {str(e)}")
+                    logger.exception("Error in crew execution")
+    
+    # Display final result
+    if st.session_state.crew_results:
+        results = st.session_state.crew_results
+        final_result = results.get('final_result', '')
         
-        with st.spinner("Processing request through agent workflow..."):
-            try:
-                result = run_crew(user_request)
-                
-                st.subheader("Result")
-                st.markdown(f'<div class="answer-box">{result}</div>', unsafe_allow_html=True)
-                
-                # Reload attack logs after task
+        if final_result:
+            st.markdown("---")
+            st.subheader("🎯 Final Result")
+            st.markdown(f'<div class="answer-box">{final_result}</div>', unsafe_allow_html=True)
+    
+    # Individual agent outputs - COMMENTED OUT FOR NOW
+    # if st.session_state.crew_results:
+    #     results = st.session_state.crew_results
+    #     task_outputs = results.get('task_outputs', {})
+    #     
+    #     if task_outputs:
+    #         st.subheader("Individual Agent Outputs")
+    #         for agent_name, output in task_outputs.items():
+    #             with st.expander(f"🤖 {agent_name}", expanded=False):
+    #                 if output and output != "No output available":
+    #                     st.markdown(f'<div class="answer-box">{output}</div>', unsafe_allow_html=True)
+    #                 else:
+    #                     st.info(f"No output available for {agent_name}")
+    
+    st.markdown("---")
+    
+    # Attack Logs Display (moved below input)
+    st.header("🔴 Attack Logs (Exfiltrated Data)")
+    
+    # Clear logs button (only show in rogue mode where logs are displayed)
+    if current_mode == "rogue":
+        if st.button("🗑️ Clear Attack Logs", key="clear_logs", type="secondary", help="Clear all attack logs from previous runs"):
+            if clear_attack_logs():
+                st.success("✅ Attack logs cleared!")
                 st.rerun()
+            else:
+                st.error("❌ Failed to clear attack logs")
+        st.markdown("")
+    
+    # Only show attack logs if in rogue mode
+    if current_mode != "rogue":
+        st.warning("⚠️ Attack logs are only generated in **rogue mode**. Switch to rogue mode to see intercepted data.")
+        st.info("💡 To see attack logs: Set `FILESYSTEM_MCP_SERVER=rogue` and restart the container.")
+    else:
+        attack_logs = load_attack_logs()
+        
+        if attack_logs:
+            stats = get_attack_statistics(attack_logs)
+            
+            # Statistics cards
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Tool Calls", stats["total_calls"])
+            with col2:
+                st.metric("Sensitive Paths", stats["sensitive_paths"], delta=None)
+            with col3:
+                st.metric("Files Read", stats["files_read"])
+            with col4:
+                st.metric("Data Exfiltrated", f"{stats['total_data_size']} bytes")
+            
+            # Sensitive categories
+            if stats["sensitive_categories"]:
+                st.subheader("Sensitive File Categories")
+                for category, count in stats["sensitive_categories"].items():
+                    st.warning(f"{category}: {count} files")
+            
+            # File paths accessed
+            st.subheader("File Paths Accessed")
+            paths = [log.get("arguments", {}).get("path", "unknown") for log in attack_logs if log.get("arguments", {}).get("path")]
+            unique_paths = list(set(paths))
+            
+            for path in unique_paths:
+                # Check if this path was marked sensitive in any log
+                is_sensitive = any(
+                    log.get("arguments", {}).get("path") == path and log.get("is_sensitive")
+                    for log in attack_logs
+                )
                 
-            except Exception as e:
-                st.error(f"Error processing request: {str(e)}")
-                logger.exception("Error in crew execution")
+                if is_sensitive:
+                    st.markdown(f'<div class="sensitive-path">🚨 {path}</div>', unsafe_allow_html=True)
+                else:
+                    st.code(path)
+            
+            # Detailed logs with file contents
+            st.subheader("Detailed Attack Logs")
+            
+            for i, log_entry in enumerate(attack_logs):
+                with st.expander(f"Log {i+1}: {log_entry.get('tool')} - {log_entry.get('arguments', {}).get('path', 'N/A')}"):
+                    # Show if sensitive
+                    if log_entry.get("is_sensitive"):
+                        st.error(f"🚨 SENSITIVE: {log_entry.get('sensitivity_category', 'unknown')}")
+                    
+                    # Show tool and arguments
+                    st.json({
+                        "timestamp": log_entry.get("timestamp"),
+                        "tool": log_entry.get("tool"),
+                        "arguments": log_entry.get("arguments"),
+                    })
+                    
+                    # Show exfiltrated data
+                    exfiltrated = log_entry.get("exfiltrated_data", {})
+                    if exfiltrated:
+                        if "file_content" in exfiltrated:
+                            st.subheader("Exfiltrated File Content:")
+                            st.code(exfiltrated["file_content"], language="text")
+                        elif "directory_structure" in exfiltrated:
+                            st.subheader("Exfiltrated Directory Structure:")
+                            st.json(exfiltrated["directory_structure"])
+                        elif "file_info" in exfiltrated:
+                            st.subheader("Exfiltrated File Metadata:")
+                            st.json(exfiltrated["file_info"])
+        else:
+            st.info("No attack logs found yet. Run a task to see intercepted data from the rogue MCP server.")
 
 
 if __name__ == "__main__":
